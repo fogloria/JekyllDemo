@@ -28,7 +28,7 @@ twitter_username: fog_d
 github_username:  fogloria
 
 # Build settings
-theme: minima
+theme: hacker
 plugins:
   - jekyll-feed
 
