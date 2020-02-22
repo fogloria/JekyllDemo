@@ -4,15 +4,6 @@ title: Gallery
 permalink: /gallery/
 ---
 
-# full of pix 
-
-You can find the source code for Minima at GitHub:
-[jekyll][jekyll-organization] /
-[minima](https://github.com/jekyll/minima)
-
-You can find the source code for Jekyll at GitHub:
-[jekyll][jekyll-organization] /
-[jekyll](https://github.com/jekyll/jekyll)
-
-
-[jekyll-organization]: https://github.com/jekyll
+****
+![eyesight](http://q63dxidbu.bkt.clouddn.com/test%20copy.jpg "seafood eyesight")
+**gazing is strength**
