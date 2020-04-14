@@ -1,6 +1,6 @@
 ---
 layout: post
-title:  "ML week #7 Decision Tree"
+title:  "ML week #8 Decision Tree"
 date:   2020-04-14 17:58:06 +0800
 categories: 
 ---
