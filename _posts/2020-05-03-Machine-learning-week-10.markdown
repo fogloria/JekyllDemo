@@ -1,7 +1,7 @@
 ---
 layout: post
 title:  "ML week #10 SVM"
-date:   2020-05-03 21:26:246 +0800
+date:   2020-05-03 21:26:24 +0800
 categories: 
 ---
 ## SVM
