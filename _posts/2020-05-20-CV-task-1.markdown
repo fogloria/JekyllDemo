@@ -1,0 +1,120 @@
+---
+layout: post
+title:  "入门CV - 街景字符编码识别task1 赛题理解"
+date:   2020-05-20 22:47:24 +0800
+categories: 
+---
+## 赛题背景
+
+《零基础入门CV之街道字符识别》
+
+通过这道赛题走入计算机视觉的世界，上手视觉赛题，提高对数据的建模能力。
+
+以计算机视觉中的字符识别为背景，要求选手预测街道字符编码，是一个典型的字符识别问题。为简化难度，赛题数据采用公开数据集SVHN，可选择相应paper做参考。
+
+## 赛题数据
+
+赛题以街道字符为为赛题数据，该数据来自收集的SVHN街道字符，并进行了匿名采样处理。
+
+[![数据示例](https://github.com/datawhalechina/team-learning/raw/master/03%20%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89%E5%AE%9E%E8%B7%B5%EF%BC%88%E8%A1%97%E6%99%AF%E5%AD%97%E7%AC%A6%E7%BC%96%E7%A0%81%E8%AF%86%E5%88%AB%EF%BC%89/IMG/%E8%B5%9B%E4%BA%8B%E7%AE%80%E4%BB%8B/%E6%95%B0%E6%8D%AE%E9%9B%86%E6%A0%B7%E6%9C%AC%E5%B1%95%E7%A4%BA.png)](https://github.com/datawhalechina/team-learning/blob/master/03 计算机视觉/计算机视觉实践（街景字符编码识别）/IMG/赛事简介/数据集样本展示.png)
+
+所有的参赛选手只能使用比赛给定的数据集完成训练，不能使用SVHN原始数据集进行训练。
+
+> 训练集：3W张照片；
+>
+> 验证集：1W张照片；
+>
+> 测试集A/B：4W张照片
+>
+> *每张照片包括颜色图像和对应的编码类别和具体位置
+>
+> *为了降低比赛难度，我们提供了训练集、验证集中所有字符的位置框
+
+
+
+### 数据标签
+
+对于训练数据每张图片将给出对于的编码标签，和具体的字符框的位置（训练集、验证集都给出字符位置），可用于模型训练：
+
+| Field  | Description |
+| ------ | ----------- |
+| top    | 左上角坐标X |
+| height | 字符高度    |
+| left   | 左上角坐标Y |
+| width  | 字符宽度    |
+| label  | 字符编码    |
+
+字符的坐标具体如下所示：
+[![坐标](https://github.com/datawhalechina/team-learning/raw/master/03%20%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89%E5%AE%9E%E8%B7%B5%EF%BC%88%E8%A1%97%E6%99%AF%E5%AD%97%E7%AC%A6%E7%BC%96%E7%A0%81%E8%AF%86%E5%88%AB%EF%BC%89/IMG/Task01/%E5%AD%97%E7%AC%A6%E5%9D%90%E6%A0%87.png)](https://github.com/datawhalechina/team-learning/blob/master/03 计算机视觉/计算机视觉实践（街景字符编码识别）/IMG/Task01/字符坐标.png)
+
+**在比赛数据（训练集和验证集）中，同一张图片中可能包括一个或者多个字符，因此在比赛数据的JSON标注中，会有两个字符的边框信息：**
+
+| 原始图片                                                     | 图片JSON标注                                                 |
+| ------------------------------------------------------------ | ------------------------------------------------------------ |
+| [![19](https://github.com/datawhalechina/team-learning/raw/master/03%20%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89%E5%AE%9E%E8%B7%B5%EF%BC%88%E8%A1%97%E6%99%AF%E5%AD%97%E7%AC%A6%E7%BC%96%E7%A0%81%E8%AF%86%E5%88%AB%EF%BC%89/IMG/Task01/%E5%8E%9F%E5%A7%8B%E5%9B%BE%E7%89%87.png)](https://github.com/datawhalechina/team-learning/blob/master/03 计算机视觉/计算机视觉实践（街景字符编码识别）/IMG/Task01/原始图片.png) | [![标注](https://github.com/datawhalechina/team-learning/raw/master/03%20%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89%E5%AE%9E%E8%B7%B5%EF%BC%88%E8%A1%97%E6%99%AF%E5%AD%97%E7%AC%A6%E7%BC%96%E7%A0%81%E8%AF%86%E5%88%AB%EF%BC%89/IMG/Task01/%E5%8E%9F%E5%A7%8B%E5%9B%BE%E7%89%87%E6%A0%87%E6%B3%A8.png)](https://github.com/datawhalechina/team-learning/blob/master/03 计算机视觉/计算机视觉实践（街景字符编码识别）/IMG/Task01/原始图片标注.png) |
+
+### 
+
+### 评测指标
+
+以编码整体识别准确率为评价指标。任何一个字符错误都为错误，最终评测指标结果越大越好：
+
+Score=编码识别正确的数量/测试集图片数量
+
+
+
+### 数据读取
+
+JSON中的标签读取：
+
+```python
+import json
+train_json = json.load(open('../input/train.json'))
+
+# 数据标注处理
+def parse_json(d):
+   arr = np.array([
+       d['top'], d['height'], d['left'],  d['width'], d['label']
+   ])
+   arr = arr.astype(int)
+   return arr
+
+img = cv2.imread('../input/train/000000.png')
+arr = parse_json(train_json['000000.png'])
+
+plt.figure(figsize=(10, 10))
+plt.subplot(1, arr.shape[1]+1, 1)
+plt.imshow(img)
+plt.xticks([]); plt.yticks([])
+
+for idx in range(arr.shape[1]):
+   plt.subplot(1, arr.shape[1]+1, idx+2)
+   plt.imshow(img[arr[0, idx]:arr[0, idx]+arr[1, idx],arr[2, idx]:arr[2, idx]+arr[3, idx]])
+   plt.title(arr[4, idx])
+   plt.xticks([]); plt.yticks([])
+```
+
+
+
+## 理解赛题解题思路
+
+分类问题
+
+不同图片中的字符数不等，与传统图像分类不同，难点在于对***不定长***的字符进行识别。有如下3种解题思路：
+
+* 将不定长变成定长
+
+  大部分图片字符数为2-4个，最多的是6个，则将全部图片转化为6个字符，原来是23，转化后变成23XXXX，其中X为填充。此时每个字符分类中有11个类别，即：0，1，2，3，4，5，6，7，8，9，X。
+
+* 识别不定长字符
+
+  CRNN字符识别模式。赛题中俄的图像数据较规整，可视为一个单词或句子。
+
+  Ref: [一文读懂CRNN+CTC文字识别](https://zhuanlan.zhihu.com/p/43534801)
+
+* 检测再识别
+
+  已知晓图片中字符位置，先进行位置识别，再用物体检测思路完成。需要构建字符检测模型，对测试集中的字符进行识别。参考[物体检测模型SSD或者YOLO来完成](https://zhuanlan.zhihu.com/p/33544892)
+
+
+
