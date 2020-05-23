@@ -1,0 +1,218 @@
+---
+layout: post
+title:  "入门CV - task2 数据读取与扩增"
+date:   2020-05-23 22:00:24 +0800
+categories: CV
+---
+## Pytorch如何读取数据？
+
+Python读取数据的库有：Pillow，OpenCV
+
+问：这两个库在读取图像的时候已经是在做数据扩增了吗？
+
+
+
+### Pillow（图像处理函式库PIL的一个分支）
+
+```python
+from PIL import image
+im=Image.open('cat.jpg')
+# 应用模糊滤镜
+im2=im.filter(ImageFilter.BLUR)
+im2.save('blur.jpg','jpeg')
+# 改变图像宽高
+im3=im.thumbnail((w//2,h//2))
+im3=im.save('thumbnail.jpg','jpeg')
+```
+
+更多：[Pillow官方文档](https://pillow.readthedocs.io/en/stable/)
+
+
+
+### OpenCV
+
+```python
+import cv2
+img=cv2.imread('cat.jpg')
+img=cv2.cvtColor(img,cv2.COLOR_BGR2RGB) # OpenCV默认颜色通道顺序是BGR，得转换下
+img=cv2.cvtColor(img,cv2.COLOR_BGR2GRAY) # 转为灰度图
+edges=cv2.Canny(img,30,70)
+cv2.imwrite('canny.jpg',edges) # Canny边缘检测
+```
+
+还有超多图像特征处理算法，如关键点检测、直线检测等，见[官网](https://opencv.org/)
+
+
+
+## 为什么要对数据进行扩增？
+
+增加样本量，防止过拟合，增强模型的**泛化**能力
+
+假设现在的分类模型需要对汽车进行分类，左边的是汽车A，右边为汽车B。如果不使用任何数据扩增方法，深度学习模型会从汽车车头的角度来进行判别，而不是汽车具体的区别。
+
+[![IMG](https://github.com/datawhalechina/team-learning/raw/master/03%20%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89%E5%AE%9E%E8%B7%B5%EF%BC%88%E8%A1%97%E6%99%AF%E5%AD%97%E7%AC%A6%E7%BC%96%E7%A0%81%E8%AF%86%E5%88%AB%EF%BC%89/IMG/Task02/%E6%95%B0%E6%8D%AE%E6%89%A9%E5%A2%9Ecar.png)](https://github.com/datawhalechina/team-learning/blob/master/03 计算机视觉/计算机视觉实践（街景字符编码识别）/IMG/Task02/数据扩增car.png)
+
+
+
+### 数据扩增方法
+
+颜色、尺度、样本等，根据不同任务扩增方法有区别，如本题是识别数字标签，翻转不可以🙅（6会变成9）
+
+以torchvision为例，有如下扩增方法：
+
+>- transforms.CenterCrop 对图片中心进行裁剪
+>- transforms.ColorJitter 对图像颜色的对比度、饱和度和零度进行变换
+>- transforms.FiveCrop 对图像四个角和中心进行裁剪得到五分图像
+>- transforms.Grayscale 对图像进行灰度变换
+>- transforms.Pad 使用固定值进行像素填充
+>- transforms.RandomAffine 随机仿射变换
+>- transforms.RandomCrop 随机区域裁剪
+>- transforms.RandomHorizontalFlip 随机水平翻转
+>- transforms.RandomRotation 随机旋转
+>- transforms.RandomVerticalFlip 随机垂直翻转
+
+
+
+### 数据扩增库
+
+[torchvision](https://github.com/pytorch/vision) : 与torch无缝集成，方法少，速度一般
+
+[imgaug](https://github.com/aleju/imgaug) : 方法多样，组合方便，速度快 
+
+[albumentations]([https://albumentations.readthedocs.io](https://albumentations.readthedocs.io/)) : 支持语义分割、物体检测、关键点检测等，速度快 
+
+
+
+## Pytorch读取数据
+
+在Pytorch中数据是通过Dataset进行封装，并通过DataLoader进行**并行读取**
+
+```python
+import os, sys, glob, shutil, json
+import cv2
+
+from PIL import Image
+import numpy as np
+
+import torch
+from torch.utils.data.dataset import Dataset
+import torchvision.transforms as transforms
+
+class SVHNDataset(Dataset):
+    def __init__(self, img_path, img_label, transform=None):
+        self.img_path = img_path
+        self.img_label = img_label 
+        if transform is not None:
+            self.transform = transform
+        else:
+            self.transform = None
+
+    def __getitem__(self, index):
+        img = Image.open(self.img_path[index]).convert('RGB')
+
+        if self.transform is not None:
+            img = self.transform(img)
+        
+        # 原始SVHN中类别10为数字0
+        lbl = np.array(self.img_label[index], dtype=np.int)
+        lbl = list(lbl)  + (5 - len(lbl)) * [10]
+        
+        return img, torch.from_numpy(np.array(lbl[:5]))
+
+    def __len__(self):
+        return len(self.img_path)
+
+train_path = glob.glob('../input/train/*.png')
+train_path.sort()
+train_json = json.load(open('../input/train.json'))
+train_label = [train_json[x]['label'] for x in train_json]
+
+data = SVHNDataset(train_path, train_label,
+          transforms.Compose([
+              transforms.Resize((64, 128)),# 缩放到固定尺寸
+              transforms.ColorJitter(0.2, 0.2, 0.2),# 随机颜色变换
+              transforms.RandomRotation(5),# 加入随机旋转
+
+              # 将图片转换为pytorch 的tesntor
+              # transforms.ToTensor(),
+
+              # 对图像像素进行归一化
+              # transforms.Normalize([0.485,0.456,0.406],[0.229,0.224,0.225])
+            ]))
+```
+
+
+
+### Dataset 与 DataLoader
+
+- Dataset：对数据集的封装，提供索引方式的对数据样本进行读取
+- DataLoader：对Dataset进行封装，提供批量读取的迭代读取
+
+```python
+import os, sys, glob, shutil, json
+import cv2
+
+from PIL import Image
+import numpy as np
+
+import torch
+from torch.utils.data.dataset import Dataset
+import torchvision.transforms as transforms
+
+class SVHNDataset(Dataset):
+    def __init__(self, img_path, img_label, transform=None):
+        self.img_path = img_path
+        self.img_label = img_label 
+        if transform is not None:
+            self.transform = transform
+        else:
+            self.transform = None
+
+    def __getitem__(self, index):
+        img = Image.open(self.img_path[index]).convert('RGB')
+
+        if self.transform is not None:
+            img = self.transform(img)
+        
+        # 原始SVHN中类别10为数字0
+        lbl = np.array(self.img_label[index], dtype=np.int)
+        lbl = list(lbl)  + (5 - len(lbl)) * [10]
+        
+        return img, torch.from_numpy(np.array(lbl[:5]))
+
+    def __len__(self):
+        return len(self.img_path)
+
+train_path = glob.glob('../input/train/*.png')
+train_path.sort()
+train_json = json.load(open('../input/train.json'))
+train_label = [train_json[x]['label'] for x in train_json]
+
+train_loader = torch.utils.data.DataLoader(
+        SVHNDataset(train_path, train_label,
+                   transforms.Compose([
+                       transforms.Resize((64, 128)),
+                       transforms.ColorJitter(0.3, 0.3, 0.2),
+                       transforms.RandomRotation(5),
+                       transforms.ToTensor(),
+                       transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+            ])), 
+    batch_size=10, # 每批样本个数
+    shuffle=False, # 是否打乱顺序
+    num_workers=10, # 读取的线程个数
+)
+
+for data in train_loader:
+    break
+```
+
+在加入DataLoader后，数据按照批次获取，每批次调用Dataset读取单个样本进行拼接。此时data的格式为：
+`torch.Size([10, 3, 64, 128]), torch.Size([10, 6])`
+前者为图像文件，为batchsize * channel * height * width次序；后者为字符标签。
+
+
+
+问：\_\_getitem \_\_部分的代码看不懂
+
+
+
