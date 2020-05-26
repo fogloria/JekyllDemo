@@ -1,0 +1,44 @@
+---
+layout: post
+title:  "入门CV - task3 模型搭建"
+date:   2020-05-26 21:43:24 +0800
+categories: CV
+---
+本赛题需要搭建的是**定长多字符分类模型**
+
+在计算机视觉领域，CNN是解决图像分类、图像检索、物体检测和语义分割的主流模型。
+
+CNN通过卷积（convolution）、池化（pooling）、非线性激活函数（non-linear activation function）和全连接层（fully connected layer）构成。
+
+
+
+如下图所示为LeNet网络结构，是非常经典的字符识别模型。两个卷积层，两个池化层，两个全连接层组成。卷积核都是5×5，stride=1，池化层使用最大池化。
+
+[![IMG](https://github.com/datawhalechina/team-learning/raw/master/03%20%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89/%E8%AE%A1%E7%AE%97%E6%9C%BA%E8%A7%86%E8%A7%89%E5%AE%9E%E8%B7%B5%EF%BC%88%E8%A1%97%E6%99%AF%E5%AD%97%E7%AC%A6%E7%BC%96%E7%A0%81%E8%AF%86%E5%88%AB%EF%BC%89/IMG/Task03/Le_CNN.png)](https://github.com/datawhalechina/team-learning/blob/master/03 计算机视觉/计算机视觉实践（街景字符编码识别）/IMG/Task03/Le_CNN.png)
+
+
+
+计算真实标签与CNN模型的预测结果的差异，并通过反向传播更新每层的参数，并在更新完成后再次前向传播，如此反复直到训练完成 。（参见tensorflow课程图）
+
+![img](https://video.udacity-data.com/topher/2019/March/5c7f0b37_tensorflow-l2f2/tensorflow-l2f2.png)
+
+⬆️前向传播
+
+![img](https://video.udacity-data.com/topher/2019/March/5c7f0ba2_tensorflow-l2f3/tensorflow-l2f3.png)
+
+⬆️反向传播
+
+
+
+网络模型结构越深、网络参数越多模型的精度更优吗？不是的⬇️
+
+![image-20200525214104329](/Users/qizhilin/Library/Application Support/typora-user-images/image-20200525214104329.png)
+
+
+
+
+
+
+
+
+
