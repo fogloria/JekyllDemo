@@ -32,7 +32,7 @@ CNN通过卷积（convolution）、池化（pooling）、非线性激活函数�
 
 网络模型结构越深、网络参数越多模型的精度更优吗？不是的⬇️
 
-![image-20200525214104329](/Users/qizhilin/Library/Application Support/typora-user-images/image-20200525214104329.png)
+[![tFyqRs.png](https://s1.ax1x.com/2020/05/26/tFyqRs.png)](https://imgchr.com/i/tFyqRs)
 
 
 
