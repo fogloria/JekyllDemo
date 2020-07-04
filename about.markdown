@@ -1,9 +1,19 @@
 ---
 layout: page
-title: About Chilin
+title: About me
 permalink: /about/
 ---
 
-# Who is Chilin Qi?
-<div align='center'>[![Chilin Qi](https://s1.ax1x.com/2020/07/04/Nvc4oj.md.png)](https://imgchr.com/i/Nvc4oj)</div>
+# Chilin Qi
+
+[![Chilin Qi](https://s1.ax1x.com/2020/07/04/Nvc4oj.md.png)](https://imgchr.com/i/Nvc4oj)
+Major in Math
+Graduated at 2014, Qingdao University
+Working at Operation department for 5 years
+Now ready to be a coder in any sense (Psychologically prepared)
+Sooo0 much to learn.
+学 无 止 境
+
+P.S. I like film photograph, check my works [here](https://music.163.com/#/my/m/music/playlist?id=498314666)
+
 
