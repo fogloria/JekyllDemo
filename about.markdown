@@ -1,20 +1,9 @@
 ---
 layout: page
-title: About
+title: About Chilin
 permalink: /about/
 ---
 
-# test 1 
+# Who is Chilin Qi?
+<div align='center'>[![Chilin Qi](https://s1.ax1x.com/2020/07/04/Nvc4oj.md.png)](https://imgchr.com/i/Nvc4oj)</div>
 
-## This is the base Jekyll theme. You can find out more info about customizing your Jekyll theme, as well as basic Jekyll usage documentation at [jekyllrb.com](https://jekyllrb.com/)
-
-You can find the source code for Minima at GitHub:
-[jekyll][jekyll-organization] /
-[minima](https://github.com/jekyll/minima)
-
-You can find the source code for Jekyll at GitHub:
-[jekyll][jekyll-organization] /
-[jekyll](https://github.com/jekyll/jekyll)
-
-
-[jekyll-organization]: https://github.com/jekyll
