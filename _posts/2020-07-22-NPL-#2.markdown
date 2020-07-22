@@ -1,0 +1,174 @@
+---
+layout: post
+title:  "入门NLP - #2 数据分析"
+date:   2020-07-22 16:08:28 +0800
+categories: NLP
+---
+希望研究以下问题：
+
+* 新闻文本长度差异
+* 新闻类别分布，哪种类别多哪种少
+* 字符分布
+
+### 文本长度分析
+
+直接统计每句的单词个数，将字符用空格隔开
+
+```python
+#读取文本
+import pandas as pd
+train_df=pd.read_csv('../input/train_set.csv',sep='\t',nrows=100)#数据量大，先读100行看看
+train_df.head()
+
+#文本长度
+train_df['text_len']=train_df['text'].apply(lambda x:len(x.split(' ')))
+print(train_df['text_len'].describe())
+```
+
+<img src="/Users/qizhilin/Library/Application Support/typora-user-images/image-20200722102318539.png" alt="image-20200722102318539" style="zoom:30%;" />
+
+```python
+Populating the interactive namespace from numpy and matplotlib
+count    200000.000000
+mean        907.207110
+std         996.029036
+min           2.000000
+25%         374.000000
+50%         676.000000
+75%        1131.000000
+max       57921.000000
+Name: text_len, dtype: float64
+```
+
+每个句子平均由907个字符构成，最短的句子长度为2，最长的句子长度为57921。绘制直方图，发现长度大多在2000以内。
+
+```python
+_=plt.hist(train_df['text_len'],bins=200)
+plt.xlabel('Text char count')
+plt.title('Histogram of char count')
+```
+
+<img src="https://camo.githubusercontent.com/656471f35c5df332c6ca027756cfd048324e5727/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343230333833363930352e706e67" alt="img" style="zoom:36%;" />
+
+
+
+### 新闻类别分布
+
+```python
+train_df['label'].value_counts().plot(kind='bar')
+plt.xlabel('category')
+plt.title('News class count')
+```
+
+<img src="https://camo.githubusercontent.com/ea8ab6a105f74fa197f29cb09e5dfd97ae6a573e/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343230333932393239362e706e67" alt="img" style="zoom:36%;" />
+
+数据集类别分布存在较为不均匀的情况，科技类（0）新闻最多，其次是股票类（1）新闻，最少的新闻是星座（13）新闻。
+
+
+
+### 字符分布
+
+统计每个字符出现的次数，先将所有句子拼接，然后再划分字符，并统计个数。
+
+```python
+from collections import Counter
+all_lines=' '.join(list(train_df['text']))
+word_count=Counter(all_lines.split(' '))
+word_count=sorted(word_count.items(),key=lambda d:d[1],reverse=True)
+
+print(len(word_count))#6869
+print(word_count[0])#('3750', 7482224)
+print(word_count[-1])#('3133', 1)
+#训练集中总共包括6869个字，其中编号3750的字出现的次数最多，编号3133的字出现的次数最少
+
+all_lines=' '.join(list(train_df['text'])).sorted('label')
+```
+
+同时根据不同字符在句子中的出现频次，可以推断哪些是标点符号
+
+```python
+train_df['text_unique']=train_df['text'].apply(lambda x:' '.join(list(set(x.split(' ')))))
+all_lines=' '.join(list(train_df['text_unique']))
+word_count=Counter(all_lines.split(' '))
+word_count=sorted(word_count.items(),key=lambda d:int(d[1]),reverse=True)
+
+print(word_count[0]) #('3750', 197997)
+print(word_count[1]) #('900', 197653)
+print(word_count[2]) #('648', 191975)
+```
+
+以上代码统计了**不同字符在句子中出现的次数**，其中字符3750，字符900和字符648在20w新闻的覆盖率接近99%，很有可能是标点符号。
+
+
+
+### 结论
+
+1. 每个句子平均由907个字符构成，有一些新闻字符较长；
+2. 类别分布不均，最多的科技类近4w，最少的星座类约1k；
+3. 总共包括近7000个不同字符。
+
+**因此…**
+
+1. 每个新闻平均字符较多，可能需要截断？输入模型训练前，要将数据长度统一化，数据要截断？
+2. 类别不均，将严重影响模型精度，如何避免？
+
+**作业：**
+
+1. 假设字符3750，字符900和字符648是句子的标点符号，请分析赛题每篇新闻平均由多少个句子构成？
+2. 统计**每类**新闻中出现次数最多的字符
+
+```python
+#1
+#python自带的split不能多条件分割，导入re模块
+import re
+train_df['sentence_num']=train_df['text'].apply(lambda x:len(re.split('3750|900|648',x)))
+print(train_df['sentence_num'].describe())
+-------------------------------------------
+count    200000.000000
+mean         80.802370
+std          86.955448
+min           1.000000
+25%          29.000000
+50%          57.000000
+75%         103.000000
+max        3460.000000
+Name: sentence_num, dtype: float64
+
+
+#2
+#去掉标点符号，按label分别拼接全部字符
+class_count = []
+for i in range(14):
+    line = ' '.join(train_df[train_df['label'] == i]['text'])
+    class_count.append(re.sub('3750|900|648', '', line))
+
+#统计不同label下的字符数
+for i, line in enumerate(class_count):
+    line = filter(lambda x: x, line.split(' '))
+    word_count = Counter(line)
+    word_count = sorted(word_count.items(), key=lambda x: x[1], reverse=True)
+    print(i, ":", word_count[0][:])
+-----------------------------------------
+0 : ('3370', 503768)
+1 : ('3370', 626708)
+2 : ('7399', 351894)
+3 : ('6122', 187933)
+4 : ('4411', 120442)
+5 : ('6122', 159125)
+6 : ('6248', 193757)
+7 : ('3370', 159156)
+8 : ('6122', 57345)
+9 : ('7328', 46477)
+10 : ('3370', 67780)
+11 : ('4939', 18591)
+12 : ('4464', 51426)
+13 : ('4939', 9651)
+```
+
+### next……特征工程
+
+
+
+
+
+
