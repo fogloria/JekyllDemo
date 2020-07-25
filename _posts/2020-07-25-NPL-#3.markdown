@@ -1,0 +1,181 @@
+---
+layout: post
+title:  "入门NLP - #3 文本分类 机器学习模型"
+date:   2020-07-25 17:48:09 +0800
+categories: NLP
+---
+用传统机器学习模型进行文本分类
+
+![img](https://camo.githubusercontent.com/d8e9a12417a2a2a754a874af0ae163bb1bddbb0b/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343230333232333235332e6a7067)
+
+### 
+
+### 文本分类Step1——文本表示
+
+类似于CV中图片看作height x weight x 3的特征图，假设有N个样本，每个样本有M个特征，则样本矩阵为N x M。但在NLP中，这种方法不适用，因为**文本是不定长的**。将文本处理成计算机能运算的数字/向量的方法叫**词嵌入(Word Embedding)**。它可以将不定长文本转到定长空间里。
+
+
+
+#### 1. One-hot
+
+```python
+#示例
+句子1：我 爱 北 京 天 安 门
+句子2：我 喜 欢 上 海
+
+#对每个字tokenize
+{
+    '我': 1, '爱': 2, '北': 3, '京': 4, '天': 5,
+  '安': 6, '门': 7, '喜': 8, '欢': 9, '上': 10, '海': 11
+}
+
+#将每个字都变成len(字数)维的稀疏向量
+我：[1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+爱：[0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+...
+海：[0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+```
+
+
+
+#### 2. Bag  of Words / Count vectors / 词袋
+
+```python
+#示例
+句子1：我 爱 北 京 天 安 门
+句子2：我 喜 欢 上 海
+
+#统计每个字出现的次数并赋值
+句子1：我 爱 北 京 天 安 门
+转换为 [1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0]
+
+句子2：我 喜 欢 上 海
+转换为 [1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1]
+
+#在sklearn中的实现（CountVectorizer）：
+from sklearn.feature_extraction.text import CountVectorizer
+corpus = [
+    'This is the first document.',
+    'This document is the second document.',
+    'And this is the third one.',
+    'Is this the first document?',
+]
+vectorizer = CountVectorizer()
+vectorizer.fit_transform(corpus).toarray()
+```
+
+
+
+#### 3. N-gram
+
+与2类似，将相邻单词组合成新的单词并计数
+
+```python
+#N=2时
+句子1：我爱 爱北 北京 京天 天安 安门
+句子2：我喜 喜欢 欢上 上海
+```
+
+
+
+#### 4. TF-IDF
+
+[**一个词语在一篇文章中出现次数越多, 同时在所有文档中出现次数越少, 越能够代表该文章**](https://zhuanlan.zhihu.com/p/97273457)
+
+```python
+#Term Frequency词语频率
+TF(t)= 该词语在当前文档出现的次数 / 当前文档中词语的总数
+#Inverse Document Frequency逆文档频率
+IDF(t)= log_e（文档总数 / 出现该词语的文档总数）
+#某一特定文件内的高词语频率，以及该词语在整个文件集合中的低文件频率，可以产生出高权重的TF-IDF。因此，TF-IDF倾向于过滤掉常见的词语，保留重要的词语，表达为
+TF-IDF=TF·IDF
+```
+
+
+
+### 文本分类step2——sklearn的机器学习模型
+
+
+
+#### Count Vectors+RidgeClassifier
+
+```python
+import pandas as pd
+
+from sklearn.feature_extraction.text import CountVectorizer
+from sklearn.linear_model import RidgeClassifier
+from sklearn.metrics import f1_score
+
+train_df = pd.read_csv('../input/train_set.csv', sep='\t', nrows=15000)
+
+vectorizer = CountVectorizer(max_features=3000)
+train_test = vectorizer.fit_transform(train_df['text'])
+
+clf = RidgeClassifier()
+clf.fit(train_test[:10000], train_df['label'].values[:10000])
+
+val_pred = clf.predict(train_test[10000:])
+print(f1_score(train_df['label'].values[10000:], val_pred, average='macro'))
+# 0.74
+```
+
+
+
+#### TF-IDF+RidgeClassifier
+
+```python
+import pandas as pd
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import RidgeClassifier
+from sklearn.metrics import f1_score
+
+train_df = pd.read_csv('../input/train_set.csv', sep='\t', nrows=15000)
+
+tfidf = TfidfVectorizer(ngram_range=(1,3), max_features=3000)
+train_test = tfidf.fit_transform(train_df['text'])
+
+clf = RidgeClassifier()
+clf.fit(train_test[:10000], train_df['label'].values[:10000])
+
+val_pred = clf.predict(train_test[10000:])
+print(f1_score(train_df['label'].values[10000:], val_pred, average='macro'))
+# 0.872
+```
+
+比较不同文本分类（特征提取）方法对机器学习的影响，TF-IDF明显结果更优。
+
+
+
+#### 作业：
+
+* 尝试改变TF-IDF的参数，并验证精度(以下是仅改变单一变量的结果)
+
+max_features=6000 #0.89  ⬆️
+
+ngram_range=(1,5)  #0.875 ⬆️🤏
+
+ngram_range=(3,5)  #0.73 ⬇️
+
+nrows=20000 # 0.877 ⬆️🤏
+
+* 尝试使用其他机器学习模型，完成训练和验证
+？？？
+
+
+
+#### next……深度学习模型
+
+
+
+
+
+
+
+
+
+
+
+
+
+
