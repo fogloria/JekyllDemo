@@ -1,0 +1,114 @@
+---
+layout: post
+title:  "入门NLP - #4 深度学习 FastText"
+date:   2020-07-27 21:59:09 +0800
+categories: NLP
+---
+在[上一节](https://fogloria.github.io/JekyllDemo/nlp/2020/07/25/NPL-3.html)学到的几种文本表示方法，一是得到的向量维度都很高，需要较长的训练时间；二是仅进行了统计，没有考虑**单词之间的关系**。
+
+而深度学习可以将文本表示映射到低维空间，如FastText, Word2Vec, Bert。
+
+### FastText
+
+<img src="https://camo.githubusercontent.com/4e01004146c81db5ee15df1b373374b3ff145bfa/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343230343835363538392e706e67" alt="img" style="zoom:20%;" />
+
+高效的文本表示，句子分类
+
+使用keras实现fasttext网络结构：
+
+```python
+from __future__ import unicode_literals
+
+from keras.models import Sequential
+from keras.layers import Embedding
+from keras.layers import GlobalAveragePooling1D
+from keras.layers import Dense
+
+VOCAB_SIZE=2000
+EMBEDDING_DIM=100
+MAX_WORDS=500
+CLASS_NUM=5
+
+def build_fastText():
+  model=Sequential()
+  model.add(Embedding(VOCAB_SIZE,EMBEDDING_DIM,input_length=MAX_WORDS))
+  model.add(GlobalAveragePooling1D())
+  model.add(Dense(CLASS_NUM,activation='Softmax'))
+  model.compile(loss='categorical_crossentropy',optimizer='SGD',metrics=['accuracy'])
+  return model
+
+if __name__='__main__':
+  model=build_fastText()
+  print(model.summary())
+```
+
+在文本分类上，FastText优于TF-IDF：
+
+* 用单词的Embedding叠加获得文档向量，将相似句子归类；
+* 空间维度较低，可快速进行训练
+
+```python
+import pandas as pd
+from sklearn.metrics import f1_score
+
+# 转换为FastText需要的格式
+# train_df = pd.read_csv('../input/train_set.csv', sep='\t', nrows=15000)
+train_df['label_ft'] = '__label__' + train_df['label'].astype(str)
+train_df[['text','label_ft']].iloc[:-5000].to_csv('train.csv', index=None, header=None, sep='\t')
+
+import fasttext
+model = fasttext.train_supervised('train.csv', lr=1.0, wordNgrams=2, 
+                                  verbose=2, minCount=1, epoch=25, loss="hs")
+
+val_pred = [model.predict(x)[0][0].split('__')[-1] for x in train_df.iloc[-5000:]['text']]
+print(f1_score(train_df['label'].values[-5000:].astype(str), val_pred, average='macro'))
+# 0.82
+```
+
+
+
+### 调参
+
+* k折交叉验证？？？
+
+<img src="https://camo.githubusercontent.com/3c19cda9d91954875be0b59abe99fad024552d29/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343230343430333834342e706e67" alt="img" style="zoom:20%;" />
+
+* 其他(以下是仅改变单一变量的结果)
+
+lr=0.2 #0.76 ⬇️
+
+wordNgrams=5 #0.82
+
+epoch=10 #0.80⬇️
+
+loss="softmax" #0.87⬆️
+
+minCount=5 #0.82
+
+verbose=4 #0.82
+
+
+
+
+
+ref: [fastText原理和文本分类实战，看这一篇就够了](https://blog.csdn.net/feilong_csdn/article/details/88655927)
+
+
+
+#### next……Word2Vec, Bert
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
