@@ -1,0 +1,173 @@
+---
+layout: post
+title:  "入门NLP - #5 深度学习 Word2Vec TextCNN RNN"
+date:   2020-07-29 17:30:09 +0800
+categories: NLP
+---
+上一节通过FastText快速实现深度学习的文本分类模型，这节将深入其他更优的模型。
+
+## Word2Vec
+
+基本思想是对出现在上下文的词进行预测。对输入文本，选取上下文窗口、中心词，基于中心词预测窗口内其他词出现的概率。
+
+**SG** Skip Grams: 给定input word预测上下文
+
+**CBOW** Continuous Bag of Words: 给定上下文预测input word
+
+<img src="https://s1.ax1x.com/2020/07/28/aEAfpt.png" alt="aEAfpt.png" style="zoom:33%;" />
+
+
+
+Word2Vec是建模+通过模型获取嵌入词向量，建模过程与自编码器auto-encoder很像，基于训练数据构建神经网络，模型训练好后，需要的是这个模型的参数，如隐藏层权重矩阵
+
+### Skip-grams过程示例
+
+“The dog barked at the mailman”
+
+**中心词 input word**：dog；
+
+**skip_window**：从 input word左/右选词的数量，skip_window=2，窗口词['The', 'dog','barked', 'at']；
+
+**num_skips**：从窗口中选取多少个不同的词作为output word，num_skips=2，得到两组 (input word, output word)，为 ('dog', 'barked')，('dog', 'the')；
+
+拿 ('dog', 'barked')训练神经网络，会得出当dog为input word时，其为output word的可能性。
+
+**模型的输出概率代表每个词与input word同时出现的可能性。**
+
+<img src="https://s1.ax1x.com/2020/07/29/aZkYxx.png" alt="aZkYxx.png" style="zoom:33%;" />
+
+
+
+### Skip-grams训练
+
+<img src="https://s1.ax1x.com/2020/07/29/aZZKp9.png" alt="aZZKp9.png" style="zoom:40%;" />
+
+
+
+如果有10000个单词，嵌入300维的词向量，则输出层的权重矩阵是10000*300=300万个权重，梯度下降会非常慢，需要大量的数据调整权重避免过拟合，Word2Vec模型将是个巨大的灾难。怎么办？
+
+> * 将常见的单词组合word pairs/词组作为单个words处理
+> * 抽样高频词以减少训练样本数
+> * negative sampling，训练只会更新一小部分模型权重
+
+#### word pairs/phases
+
+New York，Boston Globe等，应当成一个单独的词生成词向量
+
+#### 抽样高频词
+
+在训练原始文本中遇到的每一个单词，它们都有一定概率被我们从文本中删掉，而这个被删除的概率与单词的频率有关。ωi 是一个单词，Z(ωi) 是 ωi 这个单词在所有语料中出现的频次，例如：如果单词“peanut”在10亿规模大小的语料中出现了1000次，那么 Z(peanut) = 1000/1000000000 = 1e - 6。
+
+P(ωi) 代表着保留某个单词的概率：
+
+[![img](https://camo.githubusercontent.com/eefc50490ed095d0f01b6e94f723c3365ce3f00b/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343230353435363839382e706e67)](https://camo.githubusercontent.com/eefc50490ed095d0f01b6e94f723c3365ce3f00b/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343230353435363839382e706e67)
+
+#### negative sampling
+
+每当神经网络经过一个训练样本的训练，它的权重就会进行一次调整。不同于原本每个训练样本更新所有的权重，负采样negative sampling每次让一个训练样本仅仅更新一小部分的权重，这样就会降低梯度下降过程中的计算量。
+
+当我们用训练样本 ( input word: "fox", output word: "quick") 来训练我们的神经网络时，“ fox”和“quick”都是经过one-hot编码的。如果我们的词典大小为10000时，在输出层，我们期望对应“quick”单词的那个神经元结点输出1，其余9999个都应该输出0。在这里，这9999个我们期望输出为0的神经元结点所对应的单词我们称为**“negative” word**。
+
+当使用负采样时，我们将随机选择一小部分的negative words（比如选5个negative words）来更新对应的权重。也会更新“positive” word权重。
+
+PS: 在论文中，作者指出指出对于小规模数据集，选择5-20个negative words会比较好，对于大规模数据集可以仅选择2-5个negative words。
+
+我们使用“一元模型分布（unigram distribution）”来选择“negative words”。单词被选作negative sample的概率跟它出现的频次有关，出现频次越高的单词越容易被选作negative words。
+
+每个单词被选为“negative words”的概率计算公式：
+
+![aZYiee.png](https://s1.ax1x.com/2020/07/29/aZYiee.png)
+
+其中 f(ωi)代表着单词出现的频次，而公式中开3/4的根号完全是基于经验的。
+
+#### Hierarchical softmax
+
+霍夫曼树/最优二叉树，输入权值为(w1,w2,...wn)的n个节点，输出对应的霍夫曼树
+
+<img src="https://s1.ax1x.com/2020/07/29/aek7g1.png" alt="aek7g1.png" style="zoom:50%;" />
+
+由于权重高的叶子节点越靠近根节点，而权重低的叶子节点会远离根节点，这样我们的高权重节点编码值较短，而低权重值编码值较长。这保证的树的带权路径最短，也符合我们的信息论，即我们希望越常用的词拥有更短的编码。如何编码呢？一般对于一个霍夫曼树的节点（根节点除外），可以约定左子树编码为0，右子树编码为1。如上图，则可以得到c的编码是00。
+
+在word2vec中，约定编码方式和上面的例子相反，即约定左子树编码为1，右子树编码为0，同时约定左子树的权重不小于右子树的权重。
+
+
+
+## TextCNN, TextRNN文本表示
+
+### TextCNN
+
+![img](https://camo.githubusercontent.com/5fdb0650619aa072f7b3ac868dbd62ecb82d3ca0/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343230353933323732302e6a706567)
+
+```python
+# 模型搭建
+self.filter_sizes=[2,3,4]
+self.out_channel=100
+self.convs=nn.ModuleList([nn.Conv2d(1,self.out_channel,(filter_size,input_size),bias=True) for filter_size in self.filter_sizes])
+# 前向传播
+pooled_outputs=[]
+for i in range(len(self.filter_sizes)):
+  filter_height=sent_len-self.filter_sizes[i]+1
+  conv=self.convs[i](batch_embed)
+  hidden = F.relu(conv)  # sen_num x out_channel x filter_height x 1
+
+  mp = nn.MaxPool2d((filter_height, 1))  # (filter_height, filter_width)
+  # sen_num x out_channel x 1 x 1 -> sen_num x out_channel
+  pooled = mp(hidden).reshape(sen_num, self.out_channel)
+    
+  pooled_outputs.append(pooled)
+```
+
+
+
+### TextRNN
+
+LSTM Long short-term memory
+
+<img src="https://camo.githubusercontent.com/ef3911a1fcf1cf6d59dade03450abda62ca53a9f/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343231303830363439322e706e67" alt="img" style="zoom:35%;" />
+
+```python
+# 模型搭建
+input_size = config.word_dims
+
+self.word_lstm = LSTM(
+    input_size=input_size,
+    hidden_size=config.word_hidden_size,
+    num_layers=config.word_num_layers,
+    batch_first=True,
+    bidirectional=True,
+    dropout_in=config.dropout_input,
+    dropout_out=config.dropout_hidden,
+)
+# 前向传播
+hiddens, _ = self.word_lstm(batch_embed, batch_masks)  # sent_len x sen_num x hidden*2
+hiddens.transpose_(1, 0)  # sen_num x sent_len x hidden*2
+
+if self.training:
+    hiddens = drop_sequence_sharedmask(hiddens, self.dropout_mlp)
+```
+
+
+
+## HAN文本分类
+
+Hierachical Attention Network
+
+基于层级注意力，在单词和句子级别分别编码并基于注意力获得文档的表示，然后经过Softmax进行分类。其中word encoder的作用是获得句子的表示，可以替换为上节提到的TextCNN和TextRNN，也可以替换为下节中的BERT。
+
+![img](https://camo.githubusercontent.com/fc6ecdff6449fa6222c895342fd87b94d3436488/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343231303031353332362e706e67)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
