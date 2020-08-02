@@ -1,0 +1,162 @@
+---
+layout: post
+title:  "入门NLP - #6 深度学习 Bert"
+date:   2020-08-02 20:44:09 +0800
+categories: NLP
+---
+## Transformer
+
+![aYOxc4.png](https://s1.ax1x.com/2020/08/02/aYOxc4.png)
+
+ELMo中Deep是指双向双层LSTM，而更关键的在于context。ELMo首先进行了语言模型预训练，然后在下游任务中**动态调整**Word Embedding，因此最后输出的词表示能够充分表达单词在上下文中的特定语义，进而解决一词多义的问题。
+
+GPT是生成式预训练模型，开创了NLP预训练-微调的新范式。尽管GPT采用的也是和ELMo相同的两阶段模式，但GPT在第一个阶段并没有采取ELMo中使用两个单向双层LSTM拼接的结构，而是采用基于自回归式的单向语言模型。
+
+BERT也采用了预训练-微调的两阶段模式。BERT的作者认为ELMo使用两个单向语言模型拼接的方式太粗暴，因此在第一阶段的预训练过程中，BERT提出**掩码语言模型**，即类似完形填空的方式，通过上下文来预测单词本身，而不是从右到左或从左到右建模，这允许模型能够自由地编码每个层中来自两个方向的信息。
+
+![img](https://camo.githubusercontent.com/1fa48883f724ed604556d3bb9d241511012d1972/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343231313334383435362e706e67)
+
+<img src="https://s1.ax1x.com/2020/08/02/atPpuT.png" alt="atPpuT.png" style="zoom:40%;" />
+
+
+
+## Bert
+
+### pretrain
+
+首先从原始文本中创建训练数据，由于本次比赛的数据都是ID，这里重新建立了词表，并且建立了基于空格的分词器。
+
+```python
+class WhitespaceTokenizer(object):
+    """WhitespaceTokenizer with vocab."""
+    def __init__(self, vocab_file):
+        self.vocab = load_vocab(vocab_file)
+        self.inv_vocab = {v: k for k, v in self.vocab.items()}
+
+    def tokenize(self, text):
+        split_tokens = whitespace_tokenize(text)
+        output_tokens = []
+        for token in split_tokens:
+            if token in self.vocab:
+                output_tokens.append(token)
+            else:
+                output_tokens.append("[UNK]")
+        return output_tokens
+
+    def convert_tokens_to_ids(self, tokens):
+        return convert_by_vocab(self.vocab, tokens)
+
+    def convert_ids_to_tokens(self, ids):
+        return convert_by_vocab(self.inv_vocab, ids)
+```
+
+预训练由于去除了NSP预训练任务，因此将文档处理多个最大长度为256的段，如果最后一个段的长度小于256/2则丢弃。每一个段执行按照BERT原文中执行掩码语言模型，然后处理成tfrecord格式。
+
+```python
+def create_segments_from_document(document, max_segment_length):
+    """Split single document to segments according to max_segment_length."""
+    assert len(document) == 1
+    document = document[0]
+    document_len = len(document)
+
+    index = list(range(0, document_len, max_segment_length))
+    other_len = document_len % max_segment_length
+    if other_len > max_segment_length / 2:
+        index.append(document_len)
+
+    segments = []
+    for i in range(len(index) - 1):
+        segment = document[index[i]: index[i+1]]
+        segments.append(segment)
+
+    return segments
+```
+
+在预训练过程中，也只执行掩码语言模型任务，因此不再计算下一句预测任务的loss。
+
+```python
+(masked_lm_loss, masked_lm_example_loss, masked_lm_log_probs) = get_masked_lm_output(
+    bert_config, model.get_sequence_output(), model.get_embedding_table(),
+    masked_lm_positions, masked_lm_ids, masked_lm_weights)
+
+total_loss = masked_lm_loss
+```
+
+为了适配句子的长度，以及减小模型的训练时间，采取了BERT-mini模型，详细配置如下。
+
+```python
+{
+  "hidden_size": 256,
+  "hidden_act": "gelu",
+  "initializer_range": 0.02,
+  "vocab_size": 5981,
+  "hidden_dropout_prob": 0.1,
+  "num_attention_heads": 4,
+  "type_vocab_size": 2,
+  "max_position_embeddings": 256,
+  "num_hidden_layers": 4,
+  "intermediate_size": 1024,
+  "attention_probs_dropout_prob": 0.1
+}
+```
+
+由于整体框架使用Pytorch，因此需要将最后一个检查点转换成Pytorch的权重。
+
+```python
+def convert_tf_checkpoint_to_pytorch(tf_checkpoint_path, bert_config_file, pytorch_dump_path):
+    # Initialise PyTorch model
+    config = BertConfig.from_json_file(bert_config_file)
+    print("Building PyTorch model from configuration: {}".format(str(config)))
+    model = BertForPreTraining(config)
+
+    # Load weights from tf checkpoint
+    load_tf_weights_in_bert(model, config, tf_checkpoint_path)
+
+    # Save pytorch-model
+    print("Save PyTorch model to {}".format(pytorch_dump_path))
+    torch.save(model.state_dict(), pytorch_dump_path)
+```
+
+预训练消耗的资源较大，硬件条件不允许的情况下建议**直接下载开源的模型**
+
+
+
+### finetune
+
+<img src="https://camo.githubusercontent.com/6ee5331933f1637d5835522efb64f4951f6213ec/68747470733a2f2f696d672d626c6f672e6373646e696d672e636e2f32303230303731343231313532363332362e706e67" alt="img" style="zoom:47%;" />
+
+微调将最后一层的第一个token即[CLS]的隐藏向量作为句子的表示，然后输入到softmax层进行分类。
+
+```python
+sequence_output, pooled_output = \
+    self.bert(input_ids=input_ids, token_type_ids=token_type_ids)
+
+if self.pooled:
+    reps = pooled_output
+else:
+    reps = sequence_output[:, 0, :]  # sen_num x 256
+
+if self.training:
+    reps = self.dropout(reps)
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
